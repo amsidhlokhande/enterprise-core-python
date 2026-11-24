@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "enterprise-core-python"
+version = "1.0.0"
+description = "Internal Shared Enterprise Core Library for Python Microservices (Logging, Actuators, Errors, Interceptors, Swagger, Transitive Dependencies BOM)"
+authors = [
+    { name = "Enterprise Architecture Team", email = "architecture@enterprise.internal" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Framework :: Flask",
+]
+# Centralized dependencies & versions (Starter / BOM Equivalent)
+dependencies = [
+    "Flask==3.1.0",
+    "werkzeug==3.1.3",
+    "python-json-logger==2.0.7",
+    "requests==2.32.3",
+    "urllib3==2.2.3",
+    "gunicorn==23.0.0",
+    "waitress==3.0.1",
+    "pytest==8.3.3",
+]
+
+[project.optional-dependencies]
+aws = [
+    "boto3==1.35.40",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["enterprise_core*"]

@@ -1,0 +1,41 @@
+name: Publish Enterprise Core Library
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run Unit Tests
+        run: |
+          pip install pytest build twine
+          pip install -e .
+          pytest tests/ -v
+
+      - name: Build Wheel & Source Distribution
+        run: python -m build
+
+      - name: Publish to GitHub Packages
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TWINE_USERNAME: ${{ github.actor }}
+          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          TWINE_REPOSITORY_URL: "https://pypi.pkg.github.com/${{ github.repository_owner }}"
+        run: twine upload --repository-url $TWINE_REPOSITORY_URL dist/*
