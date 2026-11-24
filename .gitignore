@@ -30,4 +30,3 @@ env.bak/
 venv.bak/
 .idea/
 .vscode/
-__init__.py
