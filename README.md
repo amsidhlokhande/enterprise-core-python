@@ -1,329 +1,252 @@
-# Enterprise Core Python Library (`enterprise-core-python`)
+# 🏢 Enterprise Core Python Library (`enterprise-core-python`)
 
-[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue.svg)](https://www.python.org/)
-[![Flask Version](https://img.shields.io/badge/Flask-3.1.0-green.svg)](https://palletsprojects.com/p/flask/)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)]()
-[![License](https://img.shields.io/badge/license-Internal%20Enterprise-lightgrey.svg)]()
+[![Version: 1.0.0](https://img.shields.io/badge/version-1.0.0-blue.svg)](pyproject.toml)
+[![Python: 3.10+](https://img.shields.io/badge/python-3.10%2B-brightgreen.svg)](https://www.python.org/)
+[![License: Proprietary](https://img.shields.io/badge/license-Proprietary-red.svg)](#)
 
-Foundational enterprise shared library for Python Flask microservices providing standard cross-cutting concerns:
-- **Centralized Exception Handling & Generic Error Envelope** (RFC 7807 aligned)
-- **Structured JSON Logging with Automated PII Masking** (credit cards, accounts, emails, bearer tokens)
-- **End-to-End Latency Tracking & `X-Correlation-ID` Distributed Tracing Interceptors**
-- **Spring Boot-Style Actuators** (`/health`, `/health/liveness`, `/health/readiness`, `/info`, `/metrics`)
-- **OpenAPI 3.0 & Swagger UI Blueprint Factory** with automatic Actuator spec injection
-- **Centralized Dependency Management (BOM)** for Flask, Requests, Pytest, Gunicorn, and Waitress
+> **Architectural Pattern**: Shared Enterprise Starter Library (Spring Boot Starter Equivalent)  
+> **Java / Maven Equivalence**: `spring-boot-starter` + Common Enterprise Parent / BOM Jar  
+> **Target Problem**: Eliminates hundreds of lines of duplicate boilerplate (error handling, JSON logging, PII masking, latency interceptors, health actuators, Swagger UI) across all 36+ Python microservices.
 
 ---
 
-## Table of Contents
-
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Core Features & Modules](#core-features--modules)
-  - [1. Centralized Error Handling & Generic Error Envelope](#1-centralized-error-handling--generic-error-envelope)
-  - [2. Structured JSON Logging & PII Masking](#2-structured-json-logging--pii-masking)
-  - [3. Correlation Tracking & Latency Interceptor](#3-correlation-tracking--latency-interceptor)
-  - [4. Spring Boot-Style Actuators](#4-spring-boot-style-actuators)
-  - [5. OpenAPI 3.0 & Swagger UI Blueprint](#5-openapi-30--swagger-ui-blueprint)
-- [Centralized Dependency BOM](#centralized-dependency-bom)
-- [Local Development & Testing](#local-development--testing)
-- [Release Workflow](#release-workflow)
+## 📑 Table of Contents
+1. [Overview & Architecture](#-overview--architecture)
+2. [What is Bundled in `enterprise_core`](#-what-is-bundled-in-enterprise_core)
+3. [How Microservices Consume This Library](#-how-microservices-consume-this-library)
+   - [Dependency Specification (`requirements.txt` or `pyproject.toml`)](#1-dependency-specification-requirementstxt-or-pyprojecttoml)
+   - [Application Bootstrap (`app.py`)](#2-in-microservice-application-bootstrap-apppy)
+   - [Domain Exceptions](#3-in-microservice-domain-exceptions)
+4. [Automated Release Workflow](#-automated-release-workflow)
+5. [Enterprise Artifact Publishing Guide (JFrog, Nexus, Google Artifact Registry)](#-enterprise-artifact-publishing-guide)
+6. [Local Development & Monorepo Testing](#-local-development--monorepo-testing)
 
 ---
 
-## Installation
+## 🌟 Overview & Architecture
 
-### From GitHub Release / Git Tag
-You can install `enterprise-core-python` directly using `pip`:
+In large-scale microservice platforms (36+ services), having each microservice write its own logging configuration, PII scrubber regexes, exception handlers, health endpoints, and Swagger UI wrappers creates:
+- **Massive code duplication**: ~400 lines of identical boilerplate copied 36 times = 14,400 redundant lines.
+- **Security drift**: Inconsistent PII masking rules and error disclosure risks.
+- **Heavy maintenance**: Upgrading an OpenAPI UI version or updating a logging format requires 36 individual PRs.
 
-```bash
-# Public repository or using SSH:
-pip install git+https://github.com/<OWNER>/enterprise-core-python.git@v1.0.0
+`enterprise-core-python` acts as the **single internal standard** across the organization:
 
-# Private repository via Personal Access Token (PAT):
-pip install git+https://${GITHUB_TOKEN}@github.com/<OWNER>/enterprise-core-python.git@v1.0.0
-```
+```mermaid
+flowchart TD
+    CoreLib["📦 Internal Library: enterprise-core-python (v1.0.0)<br/>• Centralized Exception Handling (@app.errorhandler)<br/>• PIIMaskingFilter & JsonLogFormatter<br/>• Latency & Correlation-ID Interceptors<br/>• Spring Boot-Style Actuators Factory<br/>• Swagger UI & OpenAPI 3.0 Factory"]
 
-### With Optional Dependencies (e.g., AWS Boto3)
-```bash
-pip install "enterprise-core-python[aws] @ git+https://github.com/<OWNER>/enterprise-core-python.git@v1.0.0"
-```
+    subgraph DistributionChannels ["Distribution Channels"]
+        GitHub["🐙 GitHub Tag / Release (git+https)"]
+        JFrog["🐸 JFrog Artifactory"]
+        GAR["☁️ Google Artifact Registry (GCP)"]
+    end
 
-### Local Editable Installation (Development)
-```bash
-git clone https://github.com/<OWNER>/enterprise-core-python.git
-cd enterprise-core-python
-pip install -e .
+    CoreLib -->|GitHub Actions Release| GitHub
+    CoreLib -->|Build & Publish via Twine| JFrog
+    CoreLib -->|Build & Publish via Twine| GAR
+
+    subgraph Microservices ["🚀 36+ Enterprise Python Microservices"]
+        Svc1["💱 currency-exchange-service-python"]
+        Svc2["📊 currency-conversion-service-python"]
+        SvcN["⚡ Service 3 to 36..."]
+    end
+
+    GitHub -->|pip install git+https| Svc1
+    GitHub -->|pip install git+https| Svc2
+    GitHub -->|pip install git+https| SvcN
 ```
 
 ---
 
-## Quick Start
+## 📦 What is Bundled in `enterprise_core`
 
-Here is a complete, production-ready Flask microservice integrating all enterprise capabilities:
+| Module | Core Exports | Description |
+| :--- | :--- | :--- |
+| `enterprise_core.exception` | `BaseEnterpriseException`<br/>`register_centralized_error_handlers` | Single centralized `@app.errorhandler(Exception)` producing unified JSON error envelopes for domain, HTTP, and unhandled errors. |
+| `enterprise_core.logging` | `setup_enterprise_logging`<br/>`PIIMaskingFilter`<br/>`JsonLogFormatter` | High-performance JSON logging with correlation IDs, service tags, and regex scrubbing for emails, payment cards, tokens, and account numbers. |
+| `enterprise_core.interceptor`| `register_latency_interceptors` | Injects/propagates `X-Correlation-ID` and records exact millisecond latency `X-Response-Time-Ms`. |
+| `enterprise_core.actuator` | `create_actuators_blueprint` | Blueprint factory exposing `/health`, `/health/liveness`, `/health/readiness`, `/info`, and `/metrics` under any context path. |
+| `enterprise_core.swagger` | `create_swagger_blueprint` | Blueprint factory providing interactive Swagger UI and serving `/openapi.json` under the service's base context path. |
 
+---
+
+## 🚀 How Microservices Consume This Library
+
+### 1. Dependency Specification (`requirements.txt` or `pyproject.toml`)
+
+Other enterprise microservices consume `enterprise-core-python` directly from GitHub using standard PEP 508 direct reference URLs pinned to release tags:
+
+#### In `requirements.txt`:
+```text
+enterprise-core-python @ git+https://github.com/amsidhlokhande/enterprise-core-python.git@v1.0.0
+```
+
+#### With Optional Dependencies (e.g., AWS Boto3):
+```text
+enterprise-core-python[aws] @ git+https://github.com/amsidhlokhande/enterprise-core-python.git@v1.0.0
+```
+
+#### In `pyproject.toml`:
+```toml
+[project]
+dependencies = [
+    "enterprise-core-python @ git+https://github.com/amsidhlokhande/enterprise-core-python.git@v1.0.0",
+]
+```
+
+#### Via `pip install`:
+```bash
+pip install "enterprise-core-python @ git+https://github.com/amsidhlokhande/enterprise-core-python.git@v1.0.0"
+```
+
+### 2. In Microservice Application Bootstrap (`app.py`)
 ```python
-from flask import Flask, jsonify
+from flask import Flask
 from enterprise_core import (
     setup_enterprise_logging,
-    register_latency_interceptors,
     register_centralized_error_handlers,
+    register_latency_interceptors,
     create_actuators_blueprint,
-    create_swagger_blueprint,
-    BaseEnterpriseException,
+    create_swagger_blueprint
 )
+import constants
 
-# 1. Initialize Structured JSON Logging with PII Scrubbing
-setup_enterprise_logging(service_name="account-service", log_level="INFO")
+def create_app():
+    # 1. Initialize logging
+    setup_enterprise_logging(service_name=constants.SERVICE_NAME, log_level=constants.LOG_LEVEL)
 
-# 2. Instantiate Flask App
-app = Flask(__name__)
-CONTEXT_PATH = "/api/v1/accounts"
+    app = Flask(__name__)
 
-# 3. Register Latency Tracking & Correlation Tracing (X-Correlation-ID)
-register_latency_interceptors(app)
+    # 2. Register interceptors and error handlers
+    register_latency_interceptors(app)
+    register_centralized_error_handlers(
+        app,
+        default_internal_error_code=constants.ERR_INTERNAL_CODE,
+        default_internal_error_msg=constants.ERR_INTERNAL_MSG
+    )
 
-# 4. Register Centralized Error Handling (Unified Error Envelope)
-register_centralized_error_handlers(
-    app,
-    default_internal_error_code="ACCOUNT_500",
-    default_internal_error_msg="An unexpected error occurred in Account Service."
-)
+    # 3. Mount Actuators
+    actuators_bp = create_actuators_blueprint(
+        context_path=constants.CONTEXT_PATH,
+        service_name=constants.SERVICE_NAME,
+        health_callback=my_service_health_check,
+        readiness_callback=my_service_readiness_check
+    )
+    app.register_blueprint(actuators_bp)
 
-# 5. Mount Spring Boot-style Actuators (/health, /liveness, /readiness, /info, /metrics)
-actuator_bp = create_actuators_blueprint(
-    context_path=CONTEXT_PATH,
-    service_name="account-service",
-    version="1.0.0",
-    health_callback=lambda: (True, {"database": {"status": "UP"}}),
-    readiness_callback=lambda: (True, None)
-)
-app.register_blueprint(actuator_bp)
+    # 4. Mount Swagger UI
+    swagger_bp = create_swagger_blueprint(
+        context_path=constants.CONTEXT_PATH,
+        openapi_spec=OPENAPI_SPEC_DICT,
+        title=f"{constants.SERVICE_NAME} - Swagger UI"
+    )
+    app.register_blueprint(swagger_bp)
 
-# 6. Mount Swagger UI & OpenAPI 3.0 Specs (/swagger, /openapi.json)
-openapi_spec = {
-    "openapi": "3.0.3",
-    "info": {"title": "Account Service API", "version": "1.0.0"}
-}
-swagger_bp = create_swagger_blueprint(
-    context_path=CONTEXT_PATH,
-    openapi_spec=openapi_spec,
-    title="Account Service - API Documentation"
-)
-app.register_blueprint(swagger_bp)
-
-# 7. Business Route
-@app.route(f"{CONTEXT_PATH}/<account_id>", methods=["GET"])
-def get_account(account_id):
-    if account_id == "404":
-        raise BaseEnterpriseException(
-            error_code="ACC_NOT_FOUND",
-            error_message="Account does not exist",
-            error_detail_message=f"No account record found for ID: {account_id}",
-            status_code=404,
-            details=["Verify account ID format"]
-        )
-    return jsonify({"accountId": account_id, "balance": 1500.00}), 200
-
-if __name__ == "__main__":
-    app.run(port=8080)
+    return app
 ```
 
----
-
-## Core Features & Modules
-
-### 1. Centralized Error Handling & Generic Error Envelope
-
-Standardizes exception responses across all Python microservices into a single, predictable JSON format with HTTP status codes and `X-Correlation-ID` response headers.
-
-#### Custom Domain Exceptions
-Subclass `BaseEnterpriseException` for business domain errors:
-
+### 3. In Microservice Domain Exceptions
 ```python
 from enterprise_core import BaseEnterpriseException
 
-class InsufficientFundsException(BaseEnterpriseException):
-    def __init__(self, account_id: str, balance: float, required: float):
+class RateNotFoundException(BaseEnterpriseException):
+    def __init__(self, from_curr: str, to_curr: str):
         super().__init__(
-            error_code="INSUFFICIENT_FUNDS",
-            error_message="Account has insufficient balance",
-            error_detail_message=f"Account {account_id} balance ${balance} is less than required ${required}",
-            status_code=422,
-            details=["Deposit funds or reduce transaction amount"]
+            error_code="CESP_001",
+            error_message="Exchange rate not available",
+            error_detail_message=f"No rate found for {from_curr}->{to_curr}",
+            status_code=404,
+            details=[f"Pair {from_curr}->{to_curr} is not supported."]
         )
 ```
 
-#### Standard Error Response Envelope
-Whether triggered by a `BaseEnterpriseException`, a Werkzeug `HTTPException` (e.g. 404, 405), or an unhandled 500 error, all responses follow this structure:
+---
 
-```json
-{
-  "timestamp": "2026-11-24T11:45:00.123456+00:00",
-  "status": 404,
-  "errorCode": "ACC_NOT_FOUND",
-  "errorMessage": "Account does not exist",
-  "errorDetailMessage": "No account record found for ID: 999",
-  "path": "/api/v1/accounts/999",
-  "correlationId": "4bf92f35-77b3-40cf-a73c-3e3c0428db0a",
-  "details": [
-    "Verify account ID format"
-  ]
-}
-```
+## 🚀 Automated Release Workflow
+
+The library includes an automated GitHub Actions release workflow in [`.github/workflows/release.yml`](.github/workflows/release.yml):
+
+- **Triggers**:
+  - Pushes matching git tags: `'v*.*.*'`
+  - Direct pushes or merges to `main` branch
+  - Manual triggers via `workflow_dispatch`
+- **Release Automation**:
+  1. **Unit Testing**: Runs test suite under pytest (`pip install -e .` & `pytest tests/ -v`).
+  2. **Distribution Packaging**: Builds standard wheel (`.whl`) and source archive (`.tar.gz`) via `python -m build`.
+  3. **Metadata Verification**: Audits package integrity using `twine check dist/*`.
+  4. **GitHub Release Publication**: Automatically determines the release tag (`refs/tags/v*` or extracts version from `pyproject.toml` such as `v1.0.0`), generates release notes, and attaches all distribution artifacts via `softprops/action-gh-release@v2`.
 
 ---
 
-### 2. Structured JSON Logging & PII Masking
+## 🏛️ Enterprise Artifact Publishing Guide
 
-Configures standard stdout logging in machine-readable JSON format, enriched with request context, and scrubs sensitive Personally Identifiable Information (PII) before it is printed or shipped.
+When deploying across 36+ repositories, publish the built `.whl` to your enterprise repository.
 
-```python
-from enterprise_core import setup_enterprise_logging
-
-setup_enterprise_logging(service_name="payment-service", log_level="INFO")
-```
-
-#### Automatic PII Scrubbing
-The built-in `PIIMaskingFilter` automatically redacts sensitive data from log messages, arguments, and dictionaries:
-* **Email addresses:** `john.doe@company.com` $\rightarrow$ `john.doe[at]***.com`
-* **Credit Card Numbers:** `4532 1234 5678 9012` $\rightarrow$ `****-****-****-XXXX`
-* **Account Numbers (9–18 digits):** `123456789012` $\rightarrow$ `***ACCOUNT***`
-* **Bearer Tokens / API Keys:** `Bearer eyJhbGci...` $\rightarrow$ `Bearer [REDACTED_TOKEN]`
-
-#### JSON Log Format Example
-```json
-{
-  "timestamp": "2026-11-24T11:45:00.123456+00:00",
-  "level": "INFO",
-  "service": "payment-service",
-  "correlationId": "4bf92f35-77b3-40cf-a73c-3e3c0428db0a",
-  "logger": "access_audit",
-  "message": "Request completed: GET /api/v1/accounts/123 -> 200 in 2.34ms",
-  "module": "latency_interceptor",
-  "lineno": 47,
-  "method": "GET",
-  "path": "/api/v1/accounts/123",
-  "status_code": 200,
-  "duration_ms": 2.34
-}
-```
-
----
-
-### 3. Correlation Tracking & Latency Interceptor
-
-The latency interceptor manages distributed tracing context and performance telemetry on every HTTP request:
-
-```python
-from enterprise_core import register_latency_interceptors
-
-register_latency_interceptors(app)
-```
-
-* **`X-Correlation-ID` Propagation:** Extracts `X-Correlation-ID` from incoming request headers or generates a new `UUIDv4`. Stores it in Flask's request-scoped `g.correlation_id` and attaches it to the response header.
-* **`X-Response-Time-Ms` Header:** Computes high-precision response duration with `time.perf_counter()` and returns the elapsed time in milliseconds.
-* **Audit Logging:** Automatically logs an `access_audit` entry with method, path, HTTP status, correlation ID, and latency.
-
----
-
-### 4. Spring Boot-Style Actuators
-
-Exposes operational endpoints mounted strictly under the service's `context_path`:
-
-```python
-from enterprise_core import create_actuators_blueprint
-
-actuator_bp = create_actuators_blueprint(
-    context_path="/api/v1/accounts",
-    service_name="account-service",
-    version="1.0.0",
-    health_callback=lambda: (True, {"postgres": {"status": "UP"}, "redis": {"status": "UP"}}),
-    readiness_callback=lambda: (True, None)
-)
-app.register_blueprint(actuator_bp)
-```
-
-| Endpoint | Method | Purpose | Typical Response |
-| :--- | :---: | :--- | :--- |
-| `{context_path}/health` | `GET` | Aggregated health check (UP / DEGRADED) | `200 OK` or `503 Service Unavailable` |
-| `{context_path}/health/liveness` | `GET` | Kubernetes / Cloud Run liveness probe | `200 OK` (`{"status":"UP","probe":"liveness"}`) |
-| `{context_path}/health/readiness` | `GET` | Kubernetes / Cloud Run readiness probe | `200 OK` or `503 Service Unavailable` |
-| `{context_path}/info` | `GET` | Application metadata, Python runtime, uptime | `200 OK` |
-| `{context_path}/metrics` | `GET` | Uptime and operational metrics | `200 OK` |
-
----
-
-### 5. OpenAPI 3.0 & Swagger UI Blueprint
-
-Serves an interactive Swagger UI documentation portal and raw OpenAPI 3.0 JSON specification under the service's context path.
-
-```python
-from enterprise_core import create_swagger_blueprint
-
-swagger_bp = create_swagger_blueprint(
-    context_path="/api/v1/accounts",
-    openapi_spec=my_service_openapi_spec,
-    title="Account Service - Swagger UI",
-    include_actuators=True  # Automatically adds /health, /info, /metrics to Swagger docs
-)
-app.register_blueprint(swagger_bp)
-```
-
-* **Swagger UI HTML:** Accessible at `GET {context_path}/swagger`
-* **Raw OpenAPI Spec:** Accessible at `GET {context_path}/openapi.json`
-* **Auto-Injected Actuators:** Automatically injects the documentation and schemas for all actuator endpoints into the spec under the `Actuators` tag.
-
----
-
-## Centralized Dependency BOM
-
-`enterprise-core-python` acts as an enterprise Bill of Materials (BOM), pinning compatible, security-audited versions across Python services:
-
-| Dependency | Version | Purpose |
-| :--- | :--- | :--- |
-| **Flask** | `3.1.0` | Core WSGI web framework |
-| **werkzeug** | `3.1.3` | WSGI utility library and HTTP primitives |
-| **python-json-logger** | `2.0.7` | Base JSON log parsing |
-| **requests** | `2.32.3` | HTTP client for outbound calls |
-| **urllib3** | `2.2.3` | Low-level HTTP transport |
-| **gunicorn** | `23.0.0` | Linux production WSGI HTTP server |
-| **waitress** | `3.0.1` | Cross-platform / Windows WSGI HTTP server |
-| **pytest** | `8.3.3` | Test runner framework |
-| **boto3** *(optional)* | `1.35.40` | AWS SDK (`enterprise-core-python[aws]`) |
-
----
-
-## Local Development & Testing
-
-### Running Tests
-Execute the comprehensive test suite with `pytest`:
-
+### Option A: JFrog Artifactory
 ```bash
-pytest tests/ -v
-```
+# 1. Configure .pypirc
+cat <<EOF > ~/.pypirc
+[distutils]
+index-servers = artifactory
 
-### Building the Package
-To build distribution packages (`.whl` and `.tar.gz`):
+[artifactory]
+repository = https://your-company.jfrog.io/artifactory/api/pypi/pypi-local
+username = deploy-user
+password = <YOUR_API_TOKEN>
+EOF
 
-```bash
+# 2. Build and upload
+pip install build twine
 python -m build
-twine check dist/*
+twine upload -r artifactory dist/*
+```
+
+**In your 36 microservices (`requirements.txt` or Dockerfile)**:
+```dockerfile
+RUN pip install enterprise-core-python \
+    --extra-index-url https://deploy-user:<TOKEN>@your-company.jfrog.io/artifactory/api/pypi/pypi-local/simple
 ```
 
 ---
 
-## Release Workflow
-
-When changes are merged and tagged with semantic versioning:
-
+### Option B: Google Cloud Artifact Registry (GCP)
 ```bash
-git tag v1.0.1
-git push origin v1.0.1
+# 1. Create Python Package Repository in GCP
+gcloud artifacts repositories create python-shared-repo \
+    --repository-format=python \
+    --location=us-central1 \
+    --description="Enterprise Shared Python Packages"
+
+# 2. Upload with Google Keyring
+pip install keyring keyrings.google-artifactregistry-auth twine
+python -m build
+twine upload --repository-url https://us-central1-python.pkg.dev/YOUR_PROJECT_ID/python-shared-repo/ dist/*
 ```
 
-The GitHub Actions workflow in [`.github/workflows/release.yml`](.github/workflows/release.yml) will automatically:
-1. Run test suite across dependencies.
-2. Build wheel distribution (`.whl`) and source archive (`.tar.gz`).
-3. Validate metadata via `twine check`.
-4. Create a new **GitHub Release** and attach the build artifacts for distribution.
+**In your microservice Dockerfiles**:
+```dockerfile
+RUN pip install keyrings.google-artifactregistry-auth && \
+    pip install enterprise-core-python \
+    --extra-index-url https://us-central1-python.pkg.dev/YOUR_PROJECT_ID/python-shared-repo/simple/
+```
+
+---
+
+### Option C: Sonatype Nexus
+```bash
+twine upload --repository-url http://nexus.internal:8081/repository/pypi-hosted/ dist/*
+```
+
+---
+
+## 💻 Local Development & Monorepo Testing
+
+For local development or monorepos before publishing to JFrog:
+```bash
+# Editable install into current virtualenv
+pip install -e ./enterprise-core-python
+
+# Run test suite (9 tests covering all core modules)
+pytest enterprise-core-python/tests -v
+```
