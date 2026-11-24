@@ -11,8 +11,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: write
 
     steps:
       - name: Checkout Code
@@ -22,6 +21,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
 
       - name: Run Unit Tests
         run: |
@@ -30,12 +30,15 @@ jobs:
           pytest tests/ -v
 
       - name: Build Wheel & Source Distribution
-        run: python -m build
+        run: |
+          python -m build
+          twine check dist/*
 
-      - name: Publish to GitHub Packages
+      - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
         env:
-          TWINE_USERNAME: ${{ github.actor }}
-          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          TWINE_REPOSITORY_URL: "https://pypi.pkg.github.com/${{ github.repository_owner }}"
-        run: twine upload --repository-url $TWINE_REPOSITORY_URL dist/*
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

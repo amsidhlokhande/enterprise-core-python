@@ -14,7 +14,11 @@ Foundational enterprise starter library for Python Flask microservices providing
 pip install enterprise-core-python
 ```
 
-Or from private GitHub Packages:
+Or install directly from GitHub tag/release:
 ```bash
-pip install enterprise-core-python --extra-index-url https://pypi.pkg.github.com/<OWNER>/simple
+# Public repo or with SSH:
+pip install git+https://github.com/<OWNER>/enterprise-core-python.git@v1.0.0
+
+# Private repo via Personal Access Token:
+pip install git+https://${GITHUB_TOKEN}@github.com/<OWNER>/enterprise-core-python.git@v1.0.0
 ```
